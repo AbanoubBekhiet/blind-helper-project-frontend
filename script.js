@@ -22,13 +22,28 @@ video.addEventListener("loadedmetadata", () => {
 });
 
 async function startCamera() {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    video.play();
+    try {
+        // حاول استخدام الكاميرا الخلفية أولاً
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: "environment" } }
+        });
+        video.srcObject = stream;
+        video.play();
+    } catch (err) {
+        console.warn("الكاميرا الخلفية مش متاحة، استخدام الأمامية:", err);
+        // fallback على الكاميرا الأمامية
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" }
+        });
+        video.srcObject = stream;
+        video.play();
+    }
+
     setInterval(captureFrame, 3000); // every 3 seconds
 }
 
 async function captureFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // تنظيف الـ canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
