@@ -1,7 +1,7 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const SERVER_URL = "https://blind-helper-project-backend.fly.dev/detect";
+const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev/detect";
 const descriptionEl = document.getElementById("description");
 
 let isSpeaking = false;
