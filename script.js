@@ -2,7 +2,7 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev"; 
+const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev/detect";
 let mode = "none"; 
 let isSpeaking = false;
 let lastSpokenText = "";
