@@ -1,34 +1,49 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev";
 const descriptionEl = document.getElementById("description");
 
-let isSpeaking = false;
+const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev";
+
 let arabicVoice = null;
-const FRAME_INTERVAL = 5000; // every 5 seconds
+let isSpeaking = false;
+
+let currentMode = "none";  
+let lastTextOCR = "";
+let lastObjectText = "";
+
+const DETECT_INTERVAL = 5000; // 5 sec
+const OCR_INTERVAL = 2000; // 2 sec
+
+let detectIntervalID = null;
+let ocrIntervalID = null;
 
 // Load Arabic voice
 speechSynthesis.onvoiceschanged = () => {
-    const voices = speechSynthesis.getVoices();
-    arabicVoice = voices.find(v =>
+    arabicVoice = speechSynthesis.getVoices().find(v =>
         v.lang.includes("ar") || v.name.toLowerCase().includes("arabic")
     );
-    console.log("Arabic voice loaded:", arabicVoice);
 };
 
-// Message at start
+// Speak function
+function speak(text) {
+    if (!text || isSpeaking) return;
+
+    isSpeaking = true;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ar";
+    u.rate = 0.9;
+    if (arabicVoice) u.voice = arabicVoice;
+    u.onend = () => isSpeaking = false;
+    speechSynthesis.speak(u);
+}
+
+// Startup message
 window.onload = () => {
-    speakArabic("اضغط مرة واحدة لبدء وضع اكتشاف الأجسام، أو اضغط مرتين لبدء وضع قراءة النصوص من الصور");
+    speak("اضغط مرتين لتفعيل وضع اكتشاف الأجسام. اضغط ثلاث مرات لتفعيل وضع قراءة النصوص.");
 };
 
-// Set canvas size based on video
-video.addEventListener("loadedmetadata", () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-});
-
-// Start camera with back camera preferred
+// Camera Setup
 async function startCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -36,137 +51,111 @@ async function startCamera() {
         });
         video.srcObject = stream;
         video.play();
-    } catch (err) {
-        console.warn("Back camera not available, using front camera.", err);
+    } catch {
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "user" }
         });
         video.srcObject = stream;
         video.play();
     }
-
-    setInterval(() => {
-        if (currentMode === "detect") captureFrame();
-    }, FRAME_INTERVAL);
-}
-
-let lastTapTime = 0;
-const DOUBLE_TAP_THRESHOLD = 300;
-let currentMode = "none";
-
-// Listen for taps
-document.addEventListener("click", handleTap);
-document.addEventListener("touchend", handleTap);
-
-function handleTap() {
-    const now = Date.now();
-    const delta = now - lastTapTime;
-
-    if (delta < DOUBLE_TAP_THRESHOLD) {
-        startOCRMode();
-    } else {
-        setTimeout(() => {
-            if (Date.now() - lastTapTime >= DOUBLE_TAP_THRESHOLD) {
-                startObjectDetectionMode();
-            }
-        }, DOUBLE_TAP_THRESHOLD);
-    }
-
-    lastTapTime = now;
-}
-
-// =========================
-// Modes
-// =========================
-function startObjectDetectionMode() {
-    currentMode = "detect";
-    speakArabic("تم تفعيل وضع اكتشاف الأجسام");
-}
-
-function startOCRMode() {
-    currentMode = "ocr";
-    speakArabic("تم تفعيل وضع قراءة النصوص");
-
-    setTimeout(captureAndSendToOCR, 700);
-}
-
-// =========================
-// Object Detection
-// =========================
-async function captureFrame() {
-    if (video.readyState < 2) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
-    const formData = new FormData();
-    formData.append("file", blob, "frame.jpg");
-
-    try {
-        const res = await fetch(SERVER_URL + "/detect", { method: "POST", body: formData });
-        const data = await res.json();
-
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        if (data.objects?.length > 0) {
-            descriptionEl.textContent = data.text;
-
-            data.objects.forEach(o => {
-                const [x1, y1, x2, y2] = o.bbox;
-
-                ctx.strokeStyle = "#00ff99";
-                ctx.lineWidth = 3;
-                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-                ctx.fillStyle = "#00ff99";
-                ctx.font = "18px Arial";
-                ctx.fillText(`${o.label}`, x1, y1 - 5);
-            });
-
-            if (!isSpeaking && data.text) speakArabic(data.text);
-        } else {
-            descriptionEl.textContent = "لا توجد أشياء مكتشفة";
-        }
-    } catch (err) {
-        console.error("خطأ في الاتصال بالخادم:", err);
-    }
-}
-
-// =========================
-// OCR
-// =========================
-async function captureAndSendToOCR() {
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
-    const formData = new FormData();
-    formData.append("file", blob, "frame.jpg");
-
-    try {
-        const res = await fetch(SERVER_URL + "/ocr", { method: "POST", body: formData });
-        const data = await res.json();
-
-        speakArabic(data.text || "لم يتم العثور على نص");
-        descriptionEl.textContent = data.text;
-
-    } catch (err) {
-        console.error(err);
-        speakArabic("حدث خطأ أثناء قراءة النص");
-    }
-}
-
-// =========================
-// Speech
-// =========================
-function speakArabic(text) {
-    isSpeaking = true;
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "ar";
-    utter.rate = 0.9;
-    if (arabicVoice) utter.voice = arabicVoice;
-    utter.onend = () => { isSpeaking = false; };
-    speechSynthesis.speak(utter);
 }
 
 startCamera();
+
+// =============================
+// TAP HANDLING (Double / Triple)
+// =============================
+let tapCount = 0;
+document.addEventListener("click", () => {
+    tapCount++;
+    setTimeout(() => {
+        if (tapCount === 2) activateDetection();
+        if (tapCount === 3) activateOCR();
+        tapCount = 0;
+    }, 300);
+});
+
+// =============================
+// MODES
+// =============================
+function stopAll() {
+    clearInterval(detectIntervalID);
+    clearInterval(ocrIntervalID);
+    currentMode = "none";
+}
+
+function activateDetection() {
+    stopAll();
+    currentMode = "detect";
+    speak("تم تفعيل وضع اكتشاف الأجسام");
+
+    detectIntervalID = setInterval(sendToDetect, DETECT_INTERVAL);
+}
+
+function activateOCR() {
+    stopAll();
+    currentMode = "ocr";
+    speak("تم تفعيل وضع قراءة النصوص");
+
+    ocrIntervalID = setInterval(sendToOCR, OCR_INTERVAL);
+}
+
+// =============================
+// IMAGE CAPTURE
+// =============================
+function captureFrame() {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return new Promise(resolve =>
+        canvas.toBlob(resolve, "image/jpeg")
+    );
+}
+
+// =============================
+// OBJECT DETECTION
+// =============================
+async function sendToDetect() {
+    const blob = await captureFrame();
+    const form = new FormData();
+    form.append("file", blob, "frame.jpg");
+
+    try {
+        const res = await fetch(SERVER_URL + "/detect", { method: "POST", body: form });
+        const data = await res.json();
+
+        if (data.text !== lastObjectText && data.text !== "لا توجد أشياء مكتشفة") {
+            speak(data.text);
+            lastObjectText = data.text;
+        }
+
+        descriptionEl.textContent = data.text;
+
+    } catch (err) {
+        console.log("Detection error:", err);
+    }
+}
+
+// =============================
+// LIVE OCR
+// =============================
+async function sendToOCR() {
+    const blob = await captureFrame();
+    const form = new FormData();
+    form.append("file", blob, "frame.jpg");
+
+    try {
+        const res = await fetch(SERVER_URL + "/ocr", { method: "POST", body: form });
+        const data = await res.json();
+
+        const text = data.text.trim();
+
+        if (text && text !== lastTextOCR) {
+            speak(text);
+            lastTextOCR = text;
+        }
+
+        descriptionEl.textContent = text || "لا يوجد نص";
+
+    } catch (err) {
+        console.log("OCR error:", err);
+    }
+}
