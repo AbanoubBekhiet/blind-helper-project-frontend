@@ -2,8 +2,8 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const SERVER_URL = "https://your-backend-url/detect"; 
-let mode = "none"; // detect | ocr
+const SERVER_URL = "https://mervin-superdelicate-incapably.ngrok-free.dev"; 
+let mode = "none"; 
 let isSpeaking = false;
 let lastSpokenText = "";
 let lastSpokenObjects = [];
