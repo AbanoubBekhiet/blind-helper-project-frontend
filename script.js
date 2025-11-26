@@ -61,8 +61,8 @@ async function captureFrame() {
                 ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
                 ctx.fillStyle = "#00ff99";
-                ctx.font = "18px Arial";
-                ctx.fillText(`${o.label} - ${o.distance_label}`, x1, y1 - 5);
+                ctx.font = "26px Arial";
+                ctx.fillText(`${o.label_ar}`, x1, y1 - 5);
             });
 
             if (!isSpeaking && data.text) speakArabic(data.text);
