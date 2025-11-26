@@ -104,23 +104,3 @@ canvas {
 	}
 }
 
-.toggle-btn {
-	position: fixed;
-	bottom: 0;
-	left: 0;
-	width: 100%;
-	padding: 15px 0;
-	font-size: 1.2rem;
-	background: #00ff99;
-	color: #0e0e0e;
-	font-weight: bold;
-	border: none;
-	cursor: pointer;
-	text-align: center;
-	transition: all 0.3s ease;
-}
-
-.toggle-btn:hover {
-	background: #00cc7a;
-	box-shadow: 0 0 15px #00ff99;
-}
